@@ -46,7 +46,7 @@ async function json(url, token, method = 'GET', data) {
   return { status: response.status, data: await response.json() }
 }
 async function action(name, args, cookie = '') {
-  const response = await request(name === 'checkoutAction' ? '/' : name === 'loginAction' ? '/login' : '/portal', {
+  const response = await request(name === 'checkoutAction' ? '/' : name === 'loginAction' ? '/login' : name === 'riderLoginAction' ? '/rider/login' : '/portal', {
     method: 'POST', headers: { Origin: base, Accept: 'text/x-component', 'Next-Action': ids[name], Cookie: cookie }, body: await encodeReply(args),
   })
   const body = await response.text()
@@ -57,7 +57,7 @@ async function login(email) {
   const result = await json('/api/users/login', null, 'POST', { email, password })
   assert.equal(result.status, 200, `Login failed for ${email}`)
   const form = new FormData(); form.set('email', email); form.set('password', password)
-  const loggedIn = await action('loginAction', [{}, form])
+  const loggedIn = await action(result.data.user.role === 'rider' ? 'riderLoginAction' : 'loginAction', [{}, form])
   const cookie = loggedIn.response.headers.get('set-cookie')?.split(';')[0]
   assert(cookie?.startsWith('app-session='))
   return { token: result.data.token, cookie, user: result.data.user }
@@ -86,7 +86,7 @@ try {
   pass('Rider login, staff note board with six orders, and role portals render')
   const simultaneousLogins = await Promise.all([customer, other, staff, riderA, riderB].map(account => {
     const form = new FormData(); form.set('email', account.user.email); form.set('password', 'Verification123!')
-    return action('loginAction', [{}, form])
+    return action(account.user.role === 'rider' ? 'riderLoginAction' : 'loginAction', [{}, form])
   }))
   assert(simultaneousLogins.every(result => result.response.headers.get('x-action-redirect')?.includes('/portal')))
   pass('Concurrent application logins recover from transient SQLite write locks')

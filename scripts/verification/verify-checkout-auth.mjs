@@ -29,15 +29,15 @@ server.stderr.on('data', chunk => { logs += chunk })
 const request = (route, options = {}) => fetch(base + route, { ...options, redirect: 'manual' })
 async function action(name, args, cookie = '') {
   assert(ids[name], `Missing server action: ${name}`)
-  return request(name === 'checkoutAction' ? '/' : name === 'logoutAction' ? '/portal' : '/login', {
+  return request(name === 'checkoutAction' ? '/' : name === 'logoutAction' ? '/portal' : name === 'riderLoginAction' ? '/rider/login' : '/login', {
     method: 'POST', headers: { Origin: base, Accept: 'text/x-component', 'Next-Action': ids[name], Cookie: cookie }, body: await encodeReply(args),
   })
 }
-async function login(email) {
+async function login(email, actionName = 'loginAction') {
   const form = new FormData()
   form.set('email', email)
   form.set('password', 'Burken123!')
-  const result = await action('loginAction', [{}, form])
+  const result = await action(actionName, [{}, form])
   assert(result.headers.get('x-action-redirect')?.includes('/portal'))
   const cookie = result.headers.get('set-cookie')?.split(';')[0]
   assert(cookie?.startsWith('app-session='))
@@ -52,6 +52,25 @@ try {
     await new Promise(resolve => setTimeout(resolve, 500))
   }
   assert(ready, 'Verification server must be ready')
+  const riderPage = await request('/rider/login')
+  assert.equal(riderPage.status, 200)
+  assert((await riderPage.text()).includes('RIDER ACCESS'))
+  for (const [email, actionName, expectedPath] of [
+    ['rider@burken.co', 'loginAction', '/rider/login'],
+    ['customer@burken.co', 'riderLoginAction', '/login'],
+    ['staff@burken.co', 'riderLoginAction', '/login'],
+    ['admin@burken.co', 'riderLoginAction', '/login'],
+  ]) {
+    const form = new FormData()
+    form.set('email', email)
+    form.set('password', 'Burken123!')
+    form.set('portal', actionName === 'loginAction' ? 'rider' : 'general')
+    const rejected = await action(actionName, [{}, form])
+    assert.equal(rejected.headers.get('x-action-redirect'), null)
+    assert(!rejected.headers.get('set-cookie')?.includes('app-session='))
+    assert((await rejected.text()).includes(`"loginPath":"${expectedPath}"`))
+  }
+  console.log('PASS Login portals reject wrong roles and forged portal fields without issuing app cookies')
   const menu = await (await request('/api/menu-items?limit=1')).json()
   const item = menu.docs[0]
   assert(item)
@@ -71,7 +90,7 @@ try {
   assert([401, 403].includes((await postOrder({ Authorization: 'JWT forged-token' })).status))
   console.log('PASS REST rejects anonymous orders and forged role/access fields')
   for (const email of ['staff@burken.co', 'rider@burken.co']) {
-    const cookie = await login(email)
+    const cookie = await login(email, email === 'rider@burken.co' ? 'riderLoginAction' : 'loginAction')
     const session = await (await request('/api/app/session', { headers: { Cookie: cookie } })).json()
     assert.equal(session.authenticated, true)
     assert.notEqual(session.user.role, 'customer')

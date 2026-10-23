@@ -9,6 +9,14 @@ import { createPayloadRequest, logoutOperation } from "payload"
 const APP_SESSION_COOKIE = "app-session"
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7
 
+export class LoginPortalError extends Error {
+  constructor(public readonly loginPath: "/login" | "/rider/login") {
+    super(loginPath === "/rider/login"
+      ? "บัญชีไรเดอร์ต้องเข้าสู่ระบบผ่านหน้าเข้าสู่ระบบไรเดอร์"
+      : "หน้านี้สำหรับบัญชีไรเดอร์เท่านั้น กรุณาใช้หน้าเข้าสู่ระบบทั่วไป")
+  }
+}
+
 export function createAppAuth(collection: "users") {
   return {
     async currentUser(): Promise<User | null> {
@@ -23,7 +31,7 @@ export function createAppAuth(collection: "users") {
       return user
     },
 
-    async login(email: string, password: string): Promise<User> {
+    async login(email: string, password: string, portal: "general" | "rider" = "general"): Promise<User> {
       const payload = await getPayloadClient()
       const result = await localWrite(() => payload.login({
         collection,
@@ -32,6 +40,13 @@ export function createAppAuth(collection: "users") {
 
       if (!result.token || !result.user || result.user.collection !== collection) {
         throw new Error("ไม่สามารถเข้าสู่ระบบได้")
+      }
+      // Verify the authenticated role before exposing a session to the browser.
+      if (portal === "general" && result.user.role === "rider") {
+        throw new LoginPortalError("/rider/login")
+      }
+      if (portal === "rider" && result.user.role !== "rider") {
+        throw new LoginPortalError("/login")
       }
       ;(await cookies()).set(APP_SESSION_COOKIE, result.token, {
         httpOnly: true,

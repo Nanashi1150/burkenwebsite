@@ -1,13 +1,14 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { appAuth } from "@/lib/app-auth"
+import { appAuth, LoginPortalError } from "@/lib/app-auth"
 import { getPayloadClient } from "@/lib/payload"
 import { validLocation, type DeliveryLocation } from "@/lib/delivery"
 import { localWrite } from "@/lib/local-write"
 
 export type AuthActionState = {
   error?: string
+  loginPath?: "/login" | "/rider/login"
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -15,6 +16,20 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export async function loginAction(
   _state: AuthActionState,
   formData: FormData,
+): Promise<AuthActionState> {
+  return loginForPortal(formData, "general")
+}
+
+export async function riderLoginAction(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  return loginForPortal(formData, "rider")
+}
+
+async function loginForPortal(
+  formData: FormData,
+  portal: "general" | "rider",
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") || "")
     .trim()
@@ -26,8 +41,11 @@ export async function loginAction(
   }
 
   try {
-    await appAuth.login(email, password)
-  } catch {
+    await appAuth.login(email, password, portal)
+  } catch (error) {
+    if (error instanceof LoginPortalError) {
+      return { error: error.message, loginPath: error.loginPath }
+    }
     return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" }
   }
 

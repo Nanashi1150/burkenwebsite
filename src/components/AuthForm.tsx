@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState, useState } from "react"
+import Link from "next/link"
 import {
   ArrowRight,
   Eye,
@@ -17,7 +18,7 @@ import {
 
 const initialState: AuthActionState = {}
 
-export function AuthForm({ riderOnly = false }: { riderOnly?: boolean }) {
+export function AuthForm() {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [showPassword, setShowPassword] = useState(false)
   const [loginState, loginFormAction, loginPending] = useActionState(
@@ -33,7 +34,7 @@ export function AuthForm({ riderOnly = false }: { riderOnly?: boolean }) {
 
   return (
     <div className="w-full max-w-lg rounded-[2rem] bg-white p-6 shadow-[0_30px_90px_rgba(68,24,16,0.12)] sm:p-10">
-      {riderOnly ? <p className="text-xs font-black tracking-[.2em] text-[var(--brand-orange)]">BURKEN RIDER</p> : <div className="grid grid-cols-2 rounded-full bg-black/5 p-1">
+      <div className="grid grid-cols-2 rounded-full bg-black/5 p-1">
         <button
           className={`min-h-11 rounded-full text-sm font-black transition ${
             mode === "login"
@@ -56,17 +57,17 @@ export function AuthForm({ riderOnly = false }: { riderOnly?: boolean }) {
         >
           สมัครสมาชิก
         </button>
-      </div>}
+      </div>
 
       <div className="mt-8">
         <p className="text-xs font-black tracking-[0.18em] text-[var(--brand-orange)] uppercase">
           {mode === "login" ? "Welcome back" : "Join Burken Club"}
         </p>
         <h1 className="mt-2 text-4xl font-black tracking-[-0.045em]">
-          {riderOnly ? "พร้อมส่งความอร่อย" : mode === "login" ? "กลับมากินของอร่อยกัน" : "สมัครครั้งเดียว ได้ดีลทุกมื้อ"}
+          {mode === "login" ? "กลับมากินของอร่อยกัน" : "สมัครครั้งเดียว ได้ดีลทุกมื้อ"}
         </h1>
         <p className="mt-3 text-sm leading-6 text-black/50">
-          {riderOnly ? "เข้าสู่ระบบด้วยบัญชีไรเดอร์เพื่อรับงาน ดูจุดส่ง และเปิดเส้นทางนำทาง" : mode === "login"
+          {mode === "login"
             ? "เข้าสู่ระบบเพื่อสั่งอาหาร ดูออเดอร์ และใช้คะแนนสะสม"
             : "สร้างบัญชีลูกค้าใหม่ด้วยอีเมลและรหัสผ่าน"}
         </p>
@@ -136,8 +137,9 @@ export function AuthForm({ riderOnly = false }: { riderOnly?: boolean }) {
         </label>
 
         {state.error && (
-          <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">
             {state.error}
+            {state.loginPath && <Link href={state.loginPath} className="mt-2 block underline underline-offset-4">ไปหน้าเข้าสู่ระบบไรเดอร์ →</Link>}
           </p>
         )}
 
@@ -163,13 +165,12 @@ export function AuthForm({ riderOnly = false }: { riderOnly?: boolean }) {
           <span>ลูกค้า: customer@burken.co</span>
           <span>พนักงาน: staff@burken.co</span>
           <span>ผู้ดูแล: admin@burken.co</span>
-          <span>ไรเดอร์: rider@burken.co</span>
         </div>
         <p className="mt-2 text-xs font-bold text-black/50">
           รหัสผ่าน: Burken123!
         </p>
       </div>
-      {!riderOnly && <a href="/rider/login" className="mt-4 block text-center text-xs font-bold text-[var(--brand-red)] underline underline-offset-4">เข้าสู่ระบบสำหรับไรเดอร์ →</a>}
+      <Link href="/rider/login" className="mt-4 block text-center text-xs font-bold text-[var(--brand-red)] underline underline-offset-4">เข้าสู่ระบบสำหรับไรเดอร์ →</Link>
     </div>
   )
 }
